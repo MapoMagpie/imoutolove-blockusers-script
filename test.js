@@ -36,16 +36,17 @@
     var config = GM_getValue("config");
     if (!config) {//初次使用
         config = {
-            blackList: new Set(),
+            blackList: [],
             showWho: false,
             sensitiveWords: []
         }
     }
-    console.log(config);
 
     //向黑名单中添加一位
     var addBlackList = function (uid) {
-        config.blackList.add(uid);
+        if (config.blackList.indexOf(uid) === -1) {
+            config.blackList.push(uid);
+        }
         GM_setValue("config", config);
     }
 
@@ -57,13 +58,16 @@
 
     //清楚所有的黑名单
     var clearBlackList = function () {
-        config.blackList.clear();
+        config.blackList = [];
         GM_setValue("config", config);
     }
 
     //根据uid从黑名单中移除某一位
     var deleteBlackList = function (uid) {
-        config.blackList.delete(uid);
+        var index = config.blackList.indexOf(uid);
+        if (index != -1) {
+            config.blackList.splice(index, 1);
+        }
         GM_setValue("config", config);
     }
 
