@@ -30,7 +30,7 @@
         href_suffix: ".html",
         btg: blockThisGuy,
         currPageExp: /^\?([\w]+)\-.*html$/,
-        extractUID: /u\.php\?action-show-uid-(\d*).html/
+        extractUID: /u\.php\?action-show-uid-(\d*)\.?[html]*/
     }
 
     var config = GM_getValue("config");
