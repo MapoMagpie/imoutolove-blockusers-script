@@ -180,5 +180,4 @@
         configPlane.addEventListener("click", clearBlackList);
     }
 
-    // Your code here...
 })();
