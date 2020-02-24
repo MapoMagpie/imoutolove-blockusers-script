@@ -66,19 +66,26 @@ const _0L0_ = {
         let currPage = _0L0_.currPage = (currPagePre && currPagePre.length > 1) ? currPagePre[1] : "";
         _0L0_.fragment = document.createDocumentFragment();
 
+
         //加载配置
-        _0L0_.cfg = _0L0_.loadCFG();
+        _0L0_.cfg = _0L0_.loadCFG(); let ver = GM_getValue("version");
+        if (!ver || ver !== "2.0" || (_0L0_.cfg)) {
+            _0L0_.cfg = {
+                //屏蔽列表
+                blist: {},
+                //好奇心模式，启用后能看到谁被屏蔽了
+                curiosity: true,
+                //是否显示屏蔽按钮，关闭后可以节省一点性能
+                showBTN: true,
+                //敏感词列表，暂时未启用
+                sensitiveWords: []
+            };
+            GM_setValue("version", "2.0"); GM_setValue("config", _0L0_.cfg);
+            _0L0_.cfg = _0L0_.loadCFG();
+        }
+
         //如果配置不存在，则初始化一次配置
-        _0L0_.cfg || (_0L0_.cfg = {
-            //屏蔽列表
-            blist: {},
-            //好奇心模式，启用后能看到谁被屏蔽了
-            curiosity: true,
-            //是否显示屏蔽按钮，关闭后可以节省一点性能
-            showBTN: true,
-            //敏感词列表，暂时未启用
-            sensitiveWords: []
-        });
+
 
         //创建一个屏蔽按钮的元素
         if (_0L0_.cfg.showBTN) {
