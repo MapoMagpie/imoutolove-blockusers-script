@@ -69,7 +69,7 @@ const _0L0_ = {
 
         //加载配置
         _0L0_.cfg = _0L0_.loadCFG(); let ver = GM_getValue("version");
-        if (!ver || ver !== "2.0" || (_0L0_.cfg)) {
+        if (!ver || ver !== "2.0" || (!_0L0_.cfg)) {
             _0L0_.cfg = {
                 //屏蔽列表
                 blist: {},
