@@ -14,6 +14,7 @@
 // @include        http*://*.south-plus.org/*
 // @include        http*://*.white-plus.net/*
 // @include        http*://*.imoutolove.me/*
+// @icon           http://level-plus.net/favicon.ico
 // @grant        GM_setValue
 // @grant        GM_getValue
 // ==/UserScript==
