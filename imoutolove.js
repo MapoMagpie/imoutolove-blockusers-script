@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         北+多功能屏蔽脚本
-// @namespace    http://tampermonkey.net/
-// @version      2.0
+// @namespace    https://github.com/kamo2020/imoutolove-blockusers-script
+// @version      2.9
 // @description  正在更新的屏蔽脚本，欢迎犯困！
 // @author       coolguy
 // @include        http*://level-plus.net/*
@@ -19,275 +19,360 @@
 // @grant        GM_getValue
 // ==/UserScript==
 
-const _0L0_ = {
-    //配置
-    cfg: {},
-    //常量
-    cData: {
-        href_prefix: "u.php?action-show-uid-",
-        href_suffix: ".html",
-        currPageExp: /^\?([\w]+)\-?.*[html]*$/,
-        extractUID: /u\.php\?action-show-uid-(\d*)\.html*/
-    },
+class _0L0_ {
+    constructor() {
+        //初始化一些配置或数据
+        this.constInit();
+        //创建一个样式表
+        this.createCssStyleSheet();
+        //创建“我的屏蔽”
+        this.createConfigBTN(document.querySelector("a.link5:nth-child(2)").parentElement);
+    }
 
-    //当前页面所在是列表还是帖子内
-    currPage: null,
-
-    //当前页枚举
-    currPageEnum: {
-        fid: "帖子列表页",
-        tid: "帖子内"
-    },
-
-    //屏蔽等级枚举
-    levelEnum: {
-        avatar: [0, 0, 1],
-        reply: [0, 1, 1],
-        topic: [1, 1, 1]
-    },
-    //替换屏蔽后的头像
-    avatars: [
-        "https://i.ibb.co/bLr10QF/image.png",
-        "https://i.ibb.co/hX7ZBtG/image.png",
-        "https://i.ibb.co/FzsThVB/image.png"
-    ],
-
-    //屏蔽按钮
-    blockBtn: null,
-
-    //好奇心元素
-    curiosityEle: null,
-
-    //屏蔽按钮容器
-    fragment: null,
-
-    init: function () {
-        let currPagePre = _0L0_.cData.currPageExp.exec(window.location.search);
-        let currPage = _0L0_.currPage = (currPagePre && currPagePre.length > 1) ? currPagePre[1] : "";
-        _0L0_.fragment = document.createDocumentFragment();
-
-
-        //加载配置
-        _0L0_.cfg = _0L0_.loadCFG(); let ver = GM_getValue("version");
-        if (!ver || ver !== "2.0" || (!_0L0_.cfg)) {
-            _0L0_.cfg = {
-                //屏蔽列表
-                blist: {},
-                //好奇心模式，启用后能看到谁被屏蔽了
-                curiosity: true,
-                //是否显示屏蔽按钮，关闭后可以节省一点性能
-                showBTN: true,
-                //敏感词列表，暂时未启用
-                sensitiveWords: []
-            };
-            GM_setValue("version", "2.0"); GM_setValue("config", _0L0_.cfg);
-            _0L0_.cfg = _0L0_.loadCFG();
-        }
-
-        //如果配置不存在，则初始化一次配置
-
-
-        //创建一个屏蔽按钮的元素
-        if (_0L0_.cfg.showBTN) {
-            _0L0_.createBlockBTN();
-        }
-
-        //创建一个好奇心元素
-        if (_0L0_.cfg.curiosity) {
-            let width = document.querySelector("div[class='bdbA']").scrollWidth;
-            let e = _0L0_.curiosityEle = document.createElement("div");
-            e.style = "height: 16px;"
-            e.innerHTML = `<div style="width: ${width}px; background-color: #a89d966b;  text-align: center;position: absolute;">默认的屏蔽元素</div>`
-        }
-
-        //屏蔽脚本的配置按钮
-        let profileElement = document.querySelector("a[href*='profile.php']");
-        if (profileElement) {
-            _0L0_.createConfigBTN(profileElement);
-        }
-
+    //开始处理页面元素
+    start() {
         //获取所有符合要求的元素，然后遍历
-        if (currPage in _0L0_.currPageEnum) {
-            let userEles = _0L0_.findAllUserElement[currPage]();
-            for (let index = 0; index < userEles.length; index++) {
-                const ele = userEles[index];
-                //是否要给此元素添加显示按钮的事件
-                if (_0L0_.cfg.showBTN) {
-                    ele.addEventListener("mouseenter", _0L0_.showBlockBtn);
-                    ele.parentElement.addEventListener("mouseleave", _0L0_.hideBlockBtn);
+        if (["tid", "fid"].indexOf(this.currPage) != -1) {
+            //获取所有的用户信息元素
+            let userEles = this.findAllUserElement();
+            for (let userE of userEles) {
+                if (this.cfg.showBTN) {
+                    userE.addEventListener("mouseenter", (event) => { this.showBlockBtn(event) });
+                    userE.parentElement.addEventListener("mouseleave", (event) => { this.hideBlockBtn(event) });
                 }
-                //该元素是否符合要隐藏
-                let uid = _0L0_.getUser(ele)[0];
-                if ((uid) && (uid in _0L0_.cfg.blist)) {
-                    _0L0_.hideTopic(ele, _0L0_.cfg.blist[uid].level);
+                let uid = this.getUser(userE)[0];
+                if ((uid) && uid in this.cfg.blist) {
+                    this.hideTopic(userE, this.cfg.blist[uid].level);
+                    continue;
+                }
+                if (this.cfg.sensitiveWords) {
+                    //敏感词处理
                 }
             }
         } else {
             console.log("没有匹配到有效页，不做处理！");
         }
+    }
 
-    },
+    constInit() {
+        //配置
+        this.cfg = this.loadCFG() || {
+            //屏蔽列表
+            blist: {},
+            //好奇心模式，启用后能看到谁被屏蔽了
+            curiosity: true,
+            //是否显示屏蔽按钮，关闭后可以节省一点性能
+            showBTN: true,
+            //敏感词列表，暂时未启用
+            sensitiveWords: []
+        }; this.persist();
+        //常量
+        this.cData = {
+            href_prefix: "u.php?action-show-uid-",
+            href_suffix: ".html",
+            currPageExp: /^\?([\w]+)\-?.*[html]*$/,
+            extractUID: /u\.php\?action-show-uid-(\d*)\.html*/
+        };
+        //当前页面所在是列表还是帖子内
+        let currPagePre = this.cData.currPageExp.exec(window.location.search);
+        this.currPage = (currPagePre && currPagePre.length > 1) ? currPagePre[1] : "";
+        //当前页枚举
+        this.currPageEnum = {
+            fid: "帖子列表页",
+            tid: "帖子内"
+        };
+        //替换屏蔽后的头像
+        this.avatars = [
+            "https://i.ibb.co/bLr10QF/image.png",
+            "https://i.ibb.co/hX7ZBtG/image.png",
+            "https://i.ibb.co/FzsThVB/image.png"
+        ];
+        //屏蔽按钮容器
+        this.fragment = document.createDocumentFragment();
+        //屏蔽按钮
+        this.blockBtn = this.cfg.showBTN ? this.createBlockBTN() : null;
+        //好奇心元素
+        this.curiosityEle = this.cfg.curiosity ? this.createCuriosityEle() : null;
+    }
 
     //保存配置
-    persist: () => { /*window.localStorage.setItem("config", JSON.stringify(_0L0_.cfg))*/ GM_setValue("config", _0L0_.cfg) },
+    persist() { /* window.localStorage.setItem("config", JSON.stringify(this.cfg)) */ GM_setValue("config", this.cfg) }
 
     //加载配置
-    loadCFG: () => { return /*JSON.parse(window.localStorage.getItem("config"))*/ GM_getValue("config") },
+    loadCFG() { return /* JSON.parse(window.localStorage.getItem("config")) */ GM_getValue("config") }
 
     //添加一位至黑名单中
-    addOne: (uid, name, level) => { _0L0_.cfg.blist[uid] = { name, level }; _0L0_.persist(); },
+    addOne(uid, name, level) {
+        let user = this.cfg.blist[uid], levels = user ? [...user.level, ...level] : level;
+        this.cfg.blist[uid] = { name: name, level: levels }; this.persist();
+    }
 
     //删除一位从黑名单中
-    delOne: (uid) => { delete _0L0_.cfg.blist[uid]; _0L0_.persist(); },
+    delOne(uid) { delete this.cfg.blist[uid]; this.persist(); }
 
     //清空黑名单
-    delAll: () => { (window.confirm("确认要清空黑名单?")) && (_0L0_.cfg.blist = {}) && (_0L0_.persist()) },
+    delAll() { (window.confirm("确认要清空黑名单?")) && (this.cfg.blist = {}) && (this.persist()) }
 
     //添加到黑名单
-    addOneEvent: (event) => {
-        let ele = event.target, nameVal = null;
-        if (ele.parentElement && (nameVal = ele.getAttribute("name"))) {
+    addOneEvent(event) {
+        let ele = event.target, level = null;
+        if (ele.parentElement && (level = ele.getAttribute("name"))) {
             let targetE = ele.parentElement.parentElement.parentElement;
-            let uidAndname = _0L0_.getUser(targetE), level = _0L0_.levelEnum[nameVal];
-            _0L0_.addOne(uidAndname[0], uidAndname[1], level); _0L0_.hideBlockBtn(); _0L0_.hideTopic(targetE, level);
+            let uidAndname = this.getUser(targetE);
+            this.addOne(uidAndname[0], uidAndname[1], [level]); this.hideBlockBtn(event); this.hideTopic(targetE, level);
         }
-    },
+    }
 
     //修改配置中的某项
-    modCfg: (k, v) => { _0L0_.cfg[k] = v; _0L0_.persist() },
+    modCfg(k, v) { this.cfg[k] = v; this.persist() }
 
     //根据当前的a元素，获取在列表中的最大单位的元素
-    findParentNode: {
-        "fid": (node) => { return node.parentElement.parentElement; },
-        "tid": (node) => {
-            for (let index = 0, parentN = node; index < 10; index++ , parentN = parentN.parentElement) {
-                if (parentN.getAttribute("class") === "t5 t2") return parentN;
-            }
+    findParentNode(node) {
+        switch (this.currPage) {
+            case "fid": return node.parentElement.parentElement;
+            case "tid":
+                for (let index = 0, parentN = node; index < 10; index++ , parentN = parentN.parentElement) {
+                    if (parentN.getAttribute("class") === "t5 t2") return parentN;
+                }
         }
-    },
-
+    }
     //不同的页面获取的a元素们
-    findAllUserElement: {
-        "fid": () => { return document.querySelectorAll("a[href*='u.php?action-show-uid-']") },
-        "tid": () => { return document.querySelectorAll("div > a[href*='u.php?action-show-uid-']") }
-    },
-
+    findAllUserElement() {
+        switch (this.currPage) {
+            case "fid": return document.querySelectorAll("a[href*='u.php?action-show-uid-']")
+            case "tid": return document.querySelectorAll("div > a[href*='u.php?action-show-uid-']")
+        }
+    }
     //根据uid获取对应的a元素数组
-    findOneUserElement: {
-        "fid": (uid) => { return document.querySelectorAll(`a[href='${_0L0_.cData.href_prefix + uid + _0L0_.cData.href_suffix}']`) },
-        "tid": (uid) => { return document.querySelectorAll(`div > a[href='${_0L0_.cData.href_prefix + uid + _0L0_.cData.href_suffix}']`) }
-    },
+    findOneUserElement(uid) {
+        switch (this.currPage) {
+            case "fid": return document.querySelectorAll(`a[href='${this.cData.href_prefix + uid + this.cData.href_suffix}']`)
+            case "tid": return document.querySelectorAll(`div > a[href='${this.cData.href_prefix + uid + this.cData.href_suffix}']`)
+        }
+    }
 
     //删除一个元素自身
-    removeElement: (element) => { element && element.parentElement.removeChild(element) },
+    removeElement(element) { element && element.parentElement.removeChild(element) }
 
     //在此元素前插入一个元素
-    insertBefore: (before, element) => { element.parentElement.insertBefore(before, element) },
+    insertBefore(before, element) { element.parentElement.insertBefore(before, element) }
 
-    hideTopic: (ele, level) => {
-        let parentN = _0L0_.findParentNode[_0L0_.currPage](ele);
-        if ((level[0]) || (_0L0_.currPage === "tid" && level[1] === 1)) {
+    hideTopic(ele, level) {
+        let parentN = this.findParentNode(ele);
+        if ((level.indexOf("topic") !== -1) || ((this.currPage === "tid") && (level.indexOf("reply") !== -1))) {
             parentN.hidden = true;
-            if (_0L0_.cfg.curiosity) {
-                _0L0_.insertBefore(_0L0_.curiosityEle.cloneNode(true), parentN);
-                parentN.previousSibling.firstChild.addEventListener("click", _0L0_.showもと);
-                let user = _0L0_.getUser(ele);
+            if (this.cfg.curiosity) {
+                this.insertBefore(this.curiosityEle.cloneNode(true), parentN);
+                parentN.previousSibling.firstChild.addEventListener("click", (event) => { this.showもと(event) });
+                let user = this.getUser(ele);
                 parentN.previousSibling.firstChild.innerHTML = `屏蔽[<span style="color:red;">${user[1]}</span>] [开关显示]`;
             }
         } else {
             //头像元素，修改地址
-            if (_0L0_.currPage === "tid") {
+            if (this.currPage === "tid") {
                 let imgEle = parentN.querySelector("img");
                 if (imgEle) {
-                    let index = Math.floor(Math.random() * 10) % _0L0_.avatars.length;
-                    imgEle.setAttribute("src", _0L0_.avatars[index]);
+                    let index = Math.floor(Math.random() * 10) % this.avatars.length;
+                    imgEle.setAttribute("src", this.avatars[index]);
                     imgEle.style.width = "158px"; imgEle.style.height = "158px";
                 }
             }
         }
-    },
+    }
 
     //显示屏蔽按钮
-    showBlockBtn: (event) => {
-        if (_0L0_.blockBtn.parentElement) return;
-        _0L0_.insertBefore(_0L0_.fragment.firstChild, event.target.firstChild);
-    },
+    showBlockBtn(event) {
+        if (this.blockBtn.parentElement) return;
+        this.insertBefore(this.fragment, event.target.firstChild);
+    };
 
     //不显示屏蔽按钮
-    hideBlockBtn: () => { _0L0_.blockBtn.lastChild.hidden = true; _0L0_.fragment.appendChild(_0L0_.blockBtn) },
+    hideBlockBtn(event) { this.blockBtn.lastChild.hidden = true; this.fragment.appendChild(this.blockBtn) }
 
     //显示原本的帖子
-    showもと: (event) => { event.target.parentElement.nextSibling.hidden = !event.target.parentElement.nextSibling.hidden },
+    showもと(event) { event.target.parentElement.nextSibling.hidden = !event.target.parentElement.nextSibling.hidden }
 
     //隐藏该帖子，然后展示好奇心元素
-    reTopic: (event) => { (event.target.nextSibling.hidden = true) && (event.target.style.height = "30px") },
+    reTopic(event) { (event.target.nextSibling.hidden = true) && (event.target.style.height = "30px") }
 
     //从a元素中获取次用户的uid
-    getUser: (element) => { return [_0L0_.cData.extractUID.exec(element.getAttribute("href"))[1], element.lastChild.textContent] },
+    getUser(element) { return [this.cData.extractUID.exec(element.getAttribute("href"))[1], element.lastChild.textContent] }
 
-    modCfgEvent: (event) => { _0L0_.modCfg(event.target.getAttribute("name"), (event.target.checked)) },
+    modCfgEvent(event) { this.modCfg(event.target.getAttribute("name"), (event.target.checked)) }
 
-    createConfigBTN: (profileElement) => {
-        profileElement.parentElement.parentElement.style.width = "300px";
+    //创建一个样式元素
+    createCssStyleSheet() {
+        let cssStyleSheet = document.createElement("style");
+        cssStyleSheet.textContent = `
+            #infobox {
+                overflow: visible;
+            }
+
+            #myConfig, .blockBTN {
+                position: relative;
+            }
+
+            .blockBTN {
+                margin-right: 5px;
+            }
+            
+            .blockBTN > div {
+                position: absolute;
+                z-index: 1000;
+                border: 1px black solid;
+                background-color: #eeeeee;
+                width: 100px;
+                top: -1px;
+                left: -17px;
+            }
+
+            .blockBTN > div > a {
+                margin: 0px 4px;
+            }
+
+            #myConfig > div {
+                color: black;
+                background-color: #eeeeeeb3;
+                min-width: 100px;
+                border: 2px solid black;
+                position: absolute;
+                left: -10px;
+                top: -5px;
+                z-index: 1000;
+                box-sizing: border-box;
+            }
+
+            #myConfig > div > div {
+                text-align: center;
+                line-height: 20px;
+                margin: 5px 0px;
+                background-color: #aaa;
+            }
+
+            .blackListPlan {
+                position: absolute;
+                width: 600px;
+                background-color: #eeeeeee3;
+                min-height: 109px;
+                box-sizing: border-box;
+                top: -82px;
+                left: 96px;
+                border: 2px black solid;
+            }
+
+            .blackListItem {
+                margin: 13px 0px 0px 13px;
+                border: 1px black solid;
+                background-color: #aaa;
+                display:flex;
+                position: relative;
+            }
+
+            .blackListItem > cover {
+                top: 0px;
+                left: 0px;
+                position: absolute;
+                width: 110px;
+                height: 20px;
+                z-index: 100;
+            }
+
+            .blackListItem > div {
+                width: 110px;
+                height: 20px;
+                overflow: hidden;
+                text-align: left;
+            }
+            
+        `;
+        document.querySelector("head").appendChild(cssStyleSheet);
+    }
+
+    createConfigBTN(blockConfigRoot) {
         let container = document.createElement("a");
-        container.innerHTML = `<a href="javascript:void(0);" style="color: rgb(0, 255, 135);">
-                                    屏蔽配置
-                                    <div style="min-width: 150px; min-height: 150px; background-color: rgba(0, 0, 0, 0.76); border: 1px solid green; position: absolute; right: 1px; top: -10px; z-index: 1000;">
-                                        <div style="border: 1px green solid;background-color: darkslategrey; margin-top: 11px; text-align: center; line-height: 20px;">显示屏蔽按钮<input type="checkbox" style="margin-bottom: 6px;" name="showBTN"></div>
-                                        <div style="border: 1px green solid;background-color: darkslategrey; margin-top: 11px; text-align: center; line-height: 20px;">好奇心模式<input type="checkbox" style="margin-bottom: 6px;" name="curiosity"></div>
-                                        <div style="border: 1px green solid;background-color: darkslategrey; margin-top: 11px; text-align: center; line-height: 20px;">清空列表</div>
-                                        <div style="border: 1px green solid;background-color: darkslategrey; margin-top: 11px; text-align: center; line-height: 20px;position: relative;">管理列表
-                                            <div style="position: absolute;width: 600px;background-color: #3d3d3df0;min-height: 150px;top: -116px;left: 145px;border: 1px green solid;">
-                                                <div><span style="color: red;">■</span>帖子 |<span style="color: blue;">■</span> 回复 |<span style="color: green;">■</span>头像</div>
-                                                <div style="display: flex;flex-wrap: wrap; margin-bottom:10px"></div>
+        container.innerHTML = `<a href="javascript:void(0);" id="myConfig" class="link5">
+                                    屏蔽配置<div hidden="">
+                                                <div action="showBTN">屏蔽按钮${this.cfg.showBTN ? " ✔" : ""}</div>
+                                                <div action="curiosity">好奇模式${this.cfg.curiosity ? " ✔" : ""}</div>
+                                                <div action="clearList">清空列表</div>
+                                                <div style="position: relative;" action="showBlackList">管理列表
+                                                    <div class="blackListPlan" hidden="">
+                                                        <div><span style="color: red;">■</span>帖子 |<span style="color: blue;">■</span> 回复 |<span style="color: green;">■</span>头像</div>
+                                                        <div style="display: flex;flex-wrap: wrap; margin-bottom:10px"></div>
+                                                    </div>
+                                                </div>
                                             </div>
-                                        </div>
-                                    </div>
                                 </a>`;
+        //将新创建的屏蔽元素按钮追加到合适的位置！
+        blockConfigRoot.appendChild(container.firstChild);
+        let configBTN = blockConfigRoot.lastElementChild; let configPlan = configBTN.lastElementChild; let configBlackListBTN = configPlan.lastElementChild; let configBlackListPlan = configBlackListBTN.lastElementChild;
+        configBTN.addEventListener("mouseup", (event) => { configPlan.hidden = false; });
+        configPlan.addEventListener("click", (event) => { this.configActive(event.target) });
+        configPlan.addEventListener("mouseleave", (event) => { event.target.hidden = true });
+        configBlackListPlan.addEventListener("mouseleave", (event) => { event.target.hidden = true });
+    }
 
-        _0L0_.insertBefore(container.firstChild, profileElement); delete container;
-        let configBTN = profileElement.previousElementSibling;
-        let configPlane1 = configBTN.lastElementChild;
-        configPlane1.hidden = true; configPlane1.addEventListener("mouseleave", () => { configPlane1.hidden = true });
-        configBTN.addEventListener("mouseup", () => { configPlane1.hidden = false });
-        let configListBTN = configPlane1.lastElementChild, configListPlane = configListBTN.lastElementChild;
-        configListPlane.hidden = true; configListPlane.addEventListener("mouseleave", () => { configListPlane.hidden = true });
-        configListBTN.addEventListener("mouseup", () => { _0L0_.createBlackList(configListPlane.lastElementChild); configListPlane.hidden = false; });
-        let cbs = configBTN.querySelectorAll("input[type='checkbox']");
-        [].slice.call(cbs).forEach(input => { input.addEventListener("click", _0L0_.modCfgEvent); input.checked = _0L0_.cfg[input.getAttribute("name")] });
-        let clearBTN = configBTN.querySelector("div > div:nth-child(3)");
-        clearBTN.addEventListener("mouseup", _0L0_.delAll);
-    },
+    configActive(element) {
+        let action = null;
+        if (element && (action = element.getAttribute("action"))) {
+            switch (action) {
+                case "showBTN":
+                case "curiosity":
+                    this.modCfg(action, !(this.cfg[action]));
+                    if (this.cfg[action]) {
+                        element.textContent += " ✔";
+                    } else {
+                        element.textContent = element.textContent.replace(" ✔", "");
+                    }
+                    break;
+                case "clearList":
+                    this.delAll();
+                    break;
+                case "showBlackList":
+                    this.createBlackList(element.lastElementChild.lastElementChild);
+                    element.lastElementChild.hidden = false;
+                    break;
+                case "blackListItem":
+                    let user = element.nextSibling.textContent.split(":");
+                    if ((user) && window.confirm(`是否要删除?${user[1]}`)) {
+                        this.delOne(user[0]);
+                        element.parentElement.remove();
+                    }
 
-    createBlockBTN: () => {
-        let e = _0L0_.blockBtn = document.createElement("a");
-        e.setAttribute("href", "javascript:void(0)"); e.style = "color: #00ff87; margin-right: 3px; position: relative;"
-        e.innerHTML = `屏蔽 
-                        <div style="position: absolute;z-index: 1000;background-color: #736e62;border: 1px black solid;top: -22px; left:0px;">
-                            <a href="javascript:void(0)" name="topic" style="display: block;">帖子</a>
-                            <a href="javascript:void(0)" name="reply" style="display: block;">回复</a>
-                            <a href="javascript:void(0)" name="avatar" style="display: block;">头像</a>
-                        </div>`
-        e.lastChild.hidden = true; e.lastChild.addEventListener("click", _0L0_.addOneEvent, true);
-        e.addEventListener("mouseleave", _0L0_.hideBlockBtn); e.addEventListener("click", () => { e.lastChild.hidden = false });
-        _0L0_.fragment.appendChild(e);
-    },
+                    break;
+            }
+        }
+    }
 
-    createBlackList: (element) => {
+    createBlockBTN() {
+        let e = document.createElement("a"); e.setAttribute("href", "javascript:void(0)"); e.classList.add("blockBTN");
+        e.innerHTML = `屏蔽<div><a href="javascript:void(0)" name="avatar">头像</a><a href="javascript:void(0)" name="reply">回复</a><a href="javascript:void(0)" name="topic">帖子</a></div>`;
+        e.lastChild.hidden = true; e.lastChild.addEventListener("click", (event) => { this.addOneEvent(event) });
+        /* e.addEventListener("mouseleave", (event) => { this.hideBlockBtn(event) }); */ e.addEventListener("click", () => { e.lastChild.hidden = false });
+        this.fragment.appendChild(e);
+        return e;
+    }
+
+    createCuriosityEle() {
+        let width = document.querySelector("div[class='bdbA']").scrollWidth;
+        let e = document.createElement("div");
+        e.style = "height: 16px;"
+        e.innerHTML = `<div style="width: ${width}px; background-color: #a89d966b;  text-align: center;position: absolute;">默认的屏蔽元素</div>`;
+        return e;
+    }
+
+    createBlackList(element) {
         element.innerHTML = "";
         let container = document.createElement("a");
-        Object.keys(_0L0_.cfg.blist).forEach(key => { container.innerHTML = _0L0_.generateList(key, _0L0_.cfg.blist[key]); element.appendChild(container.firstChild); });
-    },
+        Object.keys(this.cfg.blist).forEach(key => { container.innerHTML = this.generateList(key, this.cfg.blist[key]); element.appendChild(container.firstChild); });
+    }
 
-    generateList: (key, { name, level }) => {
-        return `<div style="margin: 13px 0px 0px 13px;border: 1px green solid;background-color: darkslategrey;display:flex;">
-                    <div style="width: 110px;height:20px;overflow: hidden;">${key}:${name}</div>
-                    <span style="color: ${level[0] === 1 ? "red" : "white"};">■</span><span style="color: ${level[1] === 1 ? "blue" : "white"};">■</span><span style="color: ${level[2] === 1 ? "green" : "white"};">■</span>
-                </div>`
+    generateList(key, { name, level }) {
+        return `<div class="blackListItem"><cover action="blackListItem"></cover><div style="width: 110px;height:20px;overflow: hidden;">${key}:${name}</div><span style="color: ${level.indexOf("topic") !== -1 ? "black" : "gray"};">■</span><span style="color: ${level.indexOf("reply") !== -1 ? "black" : "gray"};">■</span><span style="color: ${level.indexOf("avatar") !== -1 ? "black" : "gray"};">■</span></div>`
     }
 
 }
 
-_0L0_.init();
+let I_o_o_I = new _0L0_();
 
-
+I_o_o_I.start();
