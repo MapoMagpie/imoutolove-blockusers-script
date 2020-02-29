@@ -56,16 +56,20 @@ class _0L0_ {
 
     constInit() {
         //配置
-        this.cfg = this.loadCFG() || {
-            //屏蔽列表
-            blist: {},
-            //好奇心模式，启用后能看到谁被屏蔽了
-            curiosity: true,
-            //是否显示屏蔽按钮，关闭后可以节省一点性能
-            showBTN: true,
-            //敏感词列表，暂时未启用
-            sensitiveWords: []
-        }; this.persist();
+        if ((this.cfg = this.loadCFG()) && (this.cfg.version !== "2.9")) {
+            this.cfg = this.loadCFG() || {
+                //屏蔽列表
+                blist: {},
+                //好奇心模式，启用后能看到谁被屏蔽了
+                curiosity: true,
+                //是否显示屏蔽按钮，关闭后可以节省一点性能
+                showBTN: true,
+                //敏感词列表，暂时未启用
+                sensitiveWords: [],
+                version: "2.9"
+            };
+        }
+        this.persist();
         //常量
         this.cData = {
             href_prefix: "u.php?action-show-uid-",
