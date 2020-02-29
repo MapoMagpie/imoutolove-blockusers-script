@@ -56,7 +56,7 @@ class _0L0_ {
 
     constInit() {
         //配置
-        if ((this.cfg = this.loadCFG()) && (this.cfg.version !== "2.9")) {
+        if (!(this.cfg = this.loadCFG()) || (this.cfg.version !== "2.9")) {
             this.cfg = this.loadCFG() || {
                 //屏蔽列表
                 blist: {},
