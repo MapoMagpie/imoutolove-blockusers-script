@@ -216,8 +216,9 @@ class _0L0_ {
             if (this.cfg.curiosity) {
                 this.insertBefore(this.curiosityEle.cloneNode(true), parentN);
                 parentN.previousSibling.firstChild.addEventListener("click", (event) => { this.showもと(event) });
-                let user = this.getUser(ele);
-                parentN.previousSibling.firstChild.innerHTML = `屏蔽[<span style="color:red;">${user[1]}</span>] [开关显示]`;
+                // let user = this.getUser(ele);
+                // parentN.previousSibling.firstChild.innerHTML = `屏蔽[<span style="color:red;">${user[1]}</span>] [开关显示]`;
+                parentN.previousSibling.firstChild.innerHTML = `屏蔽内容[开关显示]`;
             }
             return "hide";
         } else {
