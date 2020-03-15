@@ -60,7 +60,7 @@ class _0L0_ {
                             if (ExpwModel.model === "hide") {
                                 this.hideTopic(userE, ["topic"]);
                             } else if (ExpwModel.model === "replace") {
-                                contentElement.textContent = contentElement.textContent.replace(ExpwModel.exp, ExpwModel.replacement);
+                                this.replaceContent(contentElement, ExpwModel.exp, ExpwModel.replacement);
                             }
                         }
                     }
@@ -175,7 +175,7 @@ class _0L0_ {
         switch (this.currPage) {
             case "fid": return node.parentElement.parentElement;
             case "tid":
-                for (let index = 0, parentN = node; index < 10; index++ , parentN = parentN.parentElement) {
+                for (let index = 0, parentN = node; index < 10; index++, parentN = parentN.parentElement) {
                     if (parentN.getAttribute("class") === "t5 t2") return parentN;
                 }
         }
@@ -232,6 +232,15 @@ class _0L0_ {
                 }
             }
             return "";
+        }
+    }
+
+    replaceContent(node, exp, replacement) {
+        if (node.nodeType === Node.TEXT_NODE) {
+            node.textContent = node.textContent.replace(exp, replacement);
+        }
+        if (node.hasChildNodes()) {
+            node.childNodes.forEach(child => this.replaceContent(child, exp, replacement));
         }
     }
 
