@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         北+多功能屏蔽脚本
 // @namespace    https://github.com/kamo2020/imoutolove-blockusers-script
-// @version      3.1
-// @description  正在更新的屏蔽脚本，欢迎犯困！
+// @version      3.3
+// @description  正在更新的屏蔽脚本，欢迎反馈！
 // @author       coolguy
 // @include        http*://level-plus.net/*
 // @include        http*://south-plus.net/*
@@ -26,7 +26,11 @@ class _0L0_ {
         //创建一个样式表
         this.createCssStyleSheet();
         //创建“我的屏蔽”
-        this.createConfigBTN(document.querySelector("a.link5:nth-child(2)").parentElement);
+        if (this.isSimple) {
+            //todo 手机版的屏蔽配置
+        } else {
+            this.createConfigBTN(document.querySelector("a.link5:nth-child(2)").parentElement);
+        }
     }
 
     //开始处理页面元素
@@ -39,19 +43,34 @@ class _0L0_ {
             }
         }
         //获取所有符合要求的元素，然后遍历
-        if (["tid", "fid"].indexOf(this.currPage) != -1) {
+        if (["tid", "fid", "f", "t"].indexOf(this.currPage) != -1) {//如果当前页在帖子列表或帖子内则执行操作，此处以后可以配置在哪个具体的版块生效
             //获取所有的用户信息元素
             let userEles = this.findAllUserElement();
             for (let userE of userEles) {
-                if (this.cfg.showBTN) {
-                    userE.addEventListener("mouseenter", (event) => { this.showBlockBtn(event) });
-                    userE.parentElement.addEventListener("mouseleave", (event) => { this.hideBlockBtn(event) });
+                if (this.cfg.showBTN) {//是否显示屏蔽按钮
+                    if (this.isSimple) {
+                        //todo 手机版的屏蔽按钮处理
+                    } else {
+                        userE.addEventListener("mouseenter", (event) => { this.showBlockBtn(event) });
+                        userE.parentElement.addEventListener("mouseleave", (event) => { this.hideBlockBtn(event) });
+                    }
                 }
-                let uid = this.getUser(userE)[0];
-                if ((uid) && uid in this.cfg.blist) {
-                    if (this.hideTopic(userE, this.cfg.blist[uid].level) === "hide") continue;
+
+                //屏蔽处理
+                let uidAndname = this.getUser(userE);
+                if (this.isSimple && this.currPage === "f") {//如果是手机版则暂时使用用户名来进行判断
+                    let blockedUser = Object.values(this.cfg.blist).filter(user => user.name === uidAndname[1]);
+                    if (blockedUser && blockedUser.length > 0) {
+                        if (this.hideTopic(userE, blockedUser[0].level) === "hide") continue;
+                    }
+                } else {
+                    if ((uidAndname[0]) && uidAndname[0] in this.cfg.blist) {
+                        if (this.hideTopic(userE, this.cfg.blist[uidAndname[0]].level) === "hide") continue;
+                    }
                 }
-                if (this.cfg.sensitiveWords) {
+
+                //屏蔽词处理
+                if (!this.isSimple && this.cfg.sensitiveWords) {//手机版暂时不支持屏蔽词处理
                     let contentElement = this.getTopicContent(userE);
                     if (!contentElement) continue;
                     //敏感词处理
@@ -73,17 +92,21 @@ class _0L0_ {
 
     constInit() {
         //配置
-        if (!(this.cfg = this.loadCFG()) || (this.cfg.version !== "3.1")) {
+        if (this.cfg = this.loadCFG()) {
+            if (this.cfg.version !== "3.3") {
+                this.cfg.version = "3.3";
+            }
+        } else {
             this.cfg = {
                 //屏蔽列表
                 blist: {},
                 //好奇心模式，启用后能看到谁被屏蔽了
-                curiosity: true,
+                curiosity: false,
                 //是否显示屏蔽按钮，关闭后可以节省一点性能
                 showBTN: true,
                 //敏感词列表，暂时未启用
                 sensitiveWords: [{ word: "开心", model: "replace", replacement: "悲伤" }],
-                version: "3.1"
+                version: "3.3"
             };
         }
         this.persist();
@@ -91,35 +114,49 @@ class _0L0_ {
         this.cData = {
             href_prefix: "u.php?action-show-uid-",
             href_suffix: ".html",
-            currPageExp: /^\?([\w]+)\-?.*[html]*$/,
-            extractUID: /u\.php\?action-show-uid-(\d*)\.html*/
+            currPageExp: /^\?([a-z]+).*\.html$/,
+            extractUID: /u\.php\?action-show-uid-(\d*)[\.html]*/,
+            extractUID_f: /u\.php\?action=show&uid=(\d*)[\.html]*/
         };
+
+        //手机版处理
+        if (window.location.pathname.split("/")[1].toLowerCase() === "simple") {
+            //当前处于手机版模式
+            this.isSimple = true;
+        } else {
+            this.isSimple = false;
+        }
+
         //当前页面所在是列表还是帖子内
         let currPagePre = this.cData.currPageExp.exec(window.location.search);
         this.currPage = (currPagePre && currPagePre.length > 1) ? currPagePre[1] : "";
-        //当前页枚举
-        this.enum = {
-            currPage: {
-                fid: "帖子列表页",
-                tid: "帖子内"
-            },
-            swModel: {
-                replace: "替&nbsp;&nbsp;&nbsp;&nbsp;换",
-                hide: "隐藏贴"
-            }
-        };
-        //替换屏蔽后的头像
-        this.avatars = [
-            "https://i.ibb.co/bLr10QF/image.png",
-            "https://i.ibb.co/hX7ZBtG/image.png",
-            "https://i.ibb.co/FzsThVB/image.png"
-        ];
-        //屏蔽按钮容器
-        this.fragment = document.createDocumentFragment();
-        //屏蔽按钮
-        this.blockBtn = this.cfg.showBTN ? this.createBlockBTN() : null;
-        //好奇心元素
-        this.curiosityEle = this.cfg.curiosity ? this.createCuriosityEle() : null;
+
+        if (["tid", "fid", "f", "t"].indexOf(this.currPage) != -1) {
+            //当前页枚举
+            this.enum = {
+                currPage: {
+                    fid: "帖子列表页",
+                    tid: "帖子内"
+                },
+                swModel: {
+                    replace: "替&nbsp;&nbsp;&nbsp;&nbsp;换",
+                    hide: "隐藏贴"
+                }
+            };
+            //替换屏蔽后的头像
+            this.avatars = [
+                "https://i.ibb.co/bLr10QF/image.png",
+                "https://i.ibb.co/hX7ZBtG/image.png",
+                "https://i.ibb.co/FzsThVB/image.png"
+            ];
+            //屏蔽按钮容器
+            this.fragment = document.createDocumentFragment();
+            //屏蔽按钮
+            this.blockBtn = this.cfg.showBTN ? this.createBlockBTN() : null;
+            //好奇心元素
+            this.curiosityEle = this.cfg.curiosity ? this.createCuriosityEle() : null;
+        }
+
     }
 
     //保存配置
@@ -173,33 +210,48 @@ class _0L0_ {
     //根据当前的a元素，获取在列表中的最大单位的元素
     findParentNode(node) {
         switch (this.currPage) {
-            case "fid": return node.parentElement.parentElement;
+            case "fid":
+            case "f":
+                return node.parentElement.parentElement;
             case "tid":
+            case "t":
                 for (let index = 0, parentN = node; index < 10; index++, parentN = parentN.parentElement) {
-                    if (parentN.getAttribute("class") === "t5 t2") return parentN;
+                    if (parentN.getAttribute("class") === "t5 t2" || parentN.getAttribute("class") === "card") return parentN;
                 }
         }
     }
     //不同的页面获取的a元素们
     findAllUserElement() {
         switch (this.currPage) {
-            case "fid": return document.querySelectorAll("a[href*='u.php?action-show-uid-']");
-            case "tid": return document.querySelectorAll("div > a[href*='u.php?action-show-uid-']");
+            case "fid":
+                return document.querySelectorAll("a[href*='u.php?action-show-uid-']");
+            case "tid":
+                return document.querySelectorAll("div > a[href*='u.php?action-show-uid-']");
+            case "f":
+                return document.querySelectorAll("div.threadlist > ul > li > a > span");
+            case "t":
+                return document.querySelectorAll("div.card > div.card-body > h6 > div > a");
+
         }
     }
-    //根据uid获取对应的a元素数组
-    findOneUserElement(uid) {
-        switch (this.currPage) {
-            case "fid": return document.querySelectorAll(`a[href='${this.cData.href_prefix + uid + this.cData.href_suffix}']`)
-            case "tid": return document.querySelectorAll(`div > a[href='${this.cData.href_prefix + uid + this.cData.href_suffix}']`);
-        }
-    }
+
+    /*     //根据uid获取对应的a元素数组
+        findOneUserElement(uid) {
+            switch (this.currPage) {
+                case "fid":
+                    return document.querySelectorAll(`a[href='${this.cData.href_prefix + uid + this.cData.href_suffix}']`)
+                case "tid":
+                    return document.querySelectorAll(`div > a[href='${this.cData.href_prefix + uid + this.cData.href_suffix}']`);
+            }
+        } */
 
     getTopicContent(element) {
         let parentNode = this.findParentNode(element);
         switch (this.currPage) {
-            case "fid": return parentNode.querySelector("td:nth-child(2) > h3 > a");
-            case "tid": return parentNode.querySelector("div.f14");
+            case "fid":
+                return parentNode.querySelector("td:nth-child(2) > h3 > a");
+            case "tid":
+                return parentNode.querySelector("div.f14");
         }
     }
 
@@ -216,14 +268,11 @@ class _0L0_ {
             if (this.cfg.curiosity) {
                 this.insertBefore(this.curiosityEle.cloneNode(true), parentN);
                 parentN.previousSibling.firstChild.addEventListener("click", (event) => { this.showもと(event) });
-                // let user = this.getUser(ele);
-                // parentN.previousSibling.firstChild.innerHTML = `屏蔽[<span style="color:red;">${user[1]}</span>] [开关显示]`;
-                parentN.previousSibling.firstChild.innerHTML = `屏蔽内容[开关显示]`;
             }
             return "hide";
         } else {
             //头像元素，修改地址
-            if (this.currPage === "tid") {
+            if (this.currPage === "tid" && !this.isSimple) {//手机版没有头像
                 let imgEle = parentN.querySelector("img");
                 if (imgEle) {
                     let index = Math.floor(Math.random() * 10) % this.avatars.length;
@@ -260,7 +309,16 @@ class _0L0_ {
     reTopic(event) { (event.target.nextElementSibling.hidden = true) && (event.target.style.height = "30px") }
 
     //从a元素中获取次用户的uid
-    getUser(element) { return [this.cData.extractUID.exec(element.getAttribute("href"))[1], element.lastChild.textContent] }
+    getUser(element) {
+        if (this.isSimple) {//如果当前页面是手机页面，并且当前页是帖子列表页
+            if (this.currPage === "t") {
+                return [this.cData.extractUID_f.exec(element.getAttribute("href"))[1], element.lastChild.textContent];
+            }
+            return [null, element.textContent.split("-")[0].trim()];
+        } else {
+            return [this.cData.extractUID.exec(element.getAttribute("href"))[1], element.lastChild.textContent];
+        }
+    }
 
     modCfgEvent(event) { this.modCfg(event.target.getAttribute("name"), (event.target.checked)) }
 
@@ -481,12 +539,13 @@ class _0L0_ {
                     this.createBlackList(element.lastElementChild.lastElementChild);
                     element.lastElementChild.hidden = false;
                     break;
-                case "blackListItem":
+                case "blackListItem": {
                     let user = element.nextElementSibling.textContent.split(":");
                     if ((user) && window.confirm(`是否要删除?${user[1]}`)) {
                         this.delOne(user[0]);
                         element.parentElement.remove();
                     }
+                }
                     break;
                 case "sensitiveWords":
                     this.createSensitiveWordList(element.lastElementChild.lastElementChild);
@@ -512,10 +571,22 @@ class _0L0_ {
     }
 
     createCuriosityEle() {
-        let width = document.querySelector("div[class='bdbA']").scrollWidth;
-        let e = document.createElement("div");
-        e.style = "height: 16px;"
-        e.innerHTML = `<div style="width: ${width}px; background-color: #a89d966b;  text-align: center;position: absolute;">默认的屏蔽元素</div>`;
+        let e;
+        if (this.isSimple) {
+            if (this.currPage === "f") {
+                e = document.createElement("li");
+            }
+            if (this.currPage === "t") {
+                e = document.createElement("div");
+                e.classList.add("card");
+            }
+            e.innerHTML = `<div style="text-align: center;">点击显示屏蔽内容</div>`;
+        } else {
+            e = document.createElement("div");
+            let width = document.querySelector("div[class='bdbA']").scrollWidth;
+            e.style = "height: 16px;"
+            e.innerHTML = `<div style="width: ${width}px; background-color: #a89d966b; text-align: center; position: absolute;">屏蔽内容[开关显示]</div>`;
+        }
         return e;
     }
 
